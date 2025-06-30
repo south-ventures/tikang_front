@@ -48,7 +48,7 @@ export default function Bookings() {
     navigate(`/property/${booking.title.toLowerCase().replace(/\s+/g, '-')}`, {
       state: {
         property_id: booking.property_id,
-        room_id: property.type?.toLowerCase() === 'home' ? null : property.rooms?.[0]?.room_id || null,
+        room_id: booking.property.type?.toLowerCase() === 'home' ? null : booking.property.rooms?.[0]?.room_id || null,
         checkIn: today,
         checkOut: tomorrow,
         adults: 1,
