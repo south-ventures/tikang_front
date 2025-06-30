@@ -1,0 +1,14 @@
+/* Example of extending Tailwind with custom class */
+.home-wrapper {
+    @apply flex flex-col items-center justify-center min-h-screen bg-green-50;
+  }
+
+  /* Hide scrollbar */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
