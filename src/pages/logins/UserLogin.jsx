@@ -6,7 +6,6 @@ import { motion } from 'framer-motion';
 import { countryList } from '../../assets/utils/countries';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import NavBar from '../../components/Navbar';
-import Footer from '../../components/Footer';
 const API_BASE = process.env.REACT_APP_API_URL_GUEST;
 
 export default function UserLogin() {

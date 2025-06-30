@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   FaMapMarkerAlt,
-  FaUsers,
   FaHome,
   FaHotel,
   FaStar,
@@ -23,7 +22,6 @@ const SearchResults = () => {
     destination = '',
     checkIn,
     checkOut,
-    stayType,
     adults = 2,
     children = 0,
     rooms = 1,

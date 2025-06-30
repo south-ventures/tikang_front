@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import NavBar from '../../components/Navbar';
 
 export default function OwnerLogin() {
   const [isSignup, setIsSignup] = useState(false);

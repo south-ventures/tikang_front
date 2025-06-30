@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import Modal from '../../../components/Modal';
 
@@ -10,15 +10,19 @@ const TikangCash = () => {
   const [amount, setAmount] = useState('');
   const [history, setHistory] = useState([]);
 
-  const fetchCash = async () => {
+  const fetchCash = useCallback(async () => {
     try {
       const res = await fetch(`${process.env.REACT_APP_API_URL_CASH}/${user.user_id}`);
       const data = await res.json();
-      setCash(data.tikang_cash ?? 0); // Ensure fallback to 0
+      setCash(data.tikang_cash ?? 0); // fallback to 0
     } catch (error) {
       console.error('Failed to fetch tikang cash:', error);
     }
-  };
+  }, [user.user_id]);
+
+  useEffect(() => {
+    if (user?.user_id) fetchCash();
+  }, [user, fetchCash]);
 
   const handleTransaction = async () => {
     try {
@@ -49,10 +53,6 @@ const TikangCash = () => {
       console.error('Transaction failed:', error);
     }
   };
-
-  useEffect(() => {
-    if (user?.user_id) fetchCash();
-  }, [user]);
 
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('en-PH', {

@@ -134,7 +134,6 @@ const BookForm = () => {
   
       if (!response.ok) throw new Error('Failed to create booking');
   
-      const data = await response.json();
       setActiveStep(3);
     } catch (error) {
       console.error('Booking error:', error);

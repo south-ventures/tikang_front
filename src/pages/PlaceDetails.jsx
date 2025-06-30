@@ -5,14 +5,13 @@ import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
 import WarningPopup from '../components/WarningPopup';
 import {
-  FaHeart, FaRegHeart, FaTimes, FaBed, FaUsers, FaTag, FaStar, FaCheckCircle,
-  FaCalendarAlt, FaMinus, FaPlus, FaUserFriends, FaChild
+  FaHeart, FaRegHeart, FaTimes, FaBed, FaUsers, FaTag, FaCheckCircle, FaMinus, FaPlus, FaUserFriends, FaChild
 } from 'react-icons/fa';
 import Slider from "react-slick";
 import "slick-carousel/slick/slick.css"; 
 import "slick-carousel/slick/slick-theme.css";
 import { DateRange } from 'react-date-range';
-import { addDays, isBefore, isAfter } from 'date-fns';
+import { addDays } from 'date-fns';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import { format } from 'date-fns';
@@ -31,14 +30,6 @@ const PlaceDetails = () => {
     children,
     roomNum
   } = location.state || {};
-  const formatDate = (d) => {
-    if (!d) return '';
-    const date = new Date(d);
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD
-  };
-
-  const [editCheckIn, setEditCheckIn] = useState(formatDate(checkIn));
-  const [editCheckOut, setEditCheckOut] = useState(formatDate(checkOut));
   const [editAdults, setEditAdults] = useState(adults || 1);
   const [editChildren, setEditChildren] = useState(children || 0);
   const [editRooms, setEditRooms] = useState(roomNum || 1);
@@ -58,7 +49,7 @@ const PlaceDetails = () => {
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [showFullRoomDesc, setShowFullRoomDesc] = useState({});
-  const [showAllRoomAmenities, setShowAllRoomAmenities] = useState(false);
+  const [showAllRoomAmenities] = useState(false);
   
   const [showCalendar, setShowCalendar] = useState(false);
   const [creator, setCreator] = useState(null);
@@ -126,7 +117,7 @@ const PlaceDetails = () => {
     
   
     fetchDetailsWithUser();
-  }, [property_id, room_id]); // don't depend on user anymore
+  }, [fetchUser, user, property_id, room_id]); // don't depend on user anymore
   
 
   const handleBook = (room) => {

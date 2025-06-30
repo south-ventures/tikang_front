@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import LoadingSpinner from '../../../components/LoadingSpinner';
 import Modal from '../../../components/Modal';
 import {
@@ -39,24 +39,6 @@ export default function Bookings() {
   const filteredBookings = bookings.filter(
     (b) => b.booking_status?.toLowerCase() === activeTab
   );
-
-  const handleViewInfo = (e, booking) => {
-    e.stopPropagation();
-    const today = new Date();
-    const tomorrow = addDays(today, 1);
-
-    navigate(`/property/${booking.title.toLowerCase().replace(/\s+/g, '-')}`, {
-      state: {
-        property_id: booking.property_id,
-        room_id: booking.property.type?.toLowerCase() === 'home' ? null : booking.property.rooms?.[0]?.room_id || null,
-        checkIn: today,
-        checkOut: tomorrow,
-        adults: 1,
-        children: 0,
-        roomNum: 1,
-      },
-    });
-  };
 
   const renderBookingCard = (booking) => {
     const bg = `${process.env.REACT_APP_API_URL}${booking.thumbnail_url}` || '/assets/hotel_default.webp';
