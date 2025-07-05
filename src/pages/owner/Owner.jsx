@@ -10,12 +10,12 @@ function Owner() {
       <header className="fixed top-0 w-full z-50 bg-white/80 shadow-md backdrop-blur-sm">
         <div className="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between">
           <img
-            src="/assets/logo.png"
+            src={`${process.env.REACT_APP_API_URL}/uploads/logo/logo.png`}
             alt="Tikang Logo"
-            className="h-10 w-auto bg-white p-1 rounded"
+            className="h-16 w-auto object-contain cursor-pointer"
           />
         <a
-            href="http://localhost:3000/login"
+            href="https://tikangfrontowner-production.up.railway.app/login"
             className="text-sm text-blue-600 border border-blue-600 px-4 py-1.5 rounded-full hover:bg-blue-50">
             Sign in
           </a>

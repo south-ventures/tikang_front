@@ -1,85 +1,85 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useState, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [userLoaded, setUserLoaded] = useState(false); // Helps avoid rendering prematurely
 
-  useEffect(() => {
-    const validateToken = async () => {
-      const token = localStorage.getItem('tikangToken');
-      const pathname = window.location.pathname;
-      const isOnAuthPage =
-      pathname === '/' ||
-      pathname === '/login' ||
-      pathname === '/register' ||
-      pathname === '/forgot-password' ||
-      pathname === '/book' ||
-      pathname === '/search' ||
-      pathname === '/top-city-search' ||
-      pathname === '/owner-login' ||
-      pathname === '/owner' ||
-      pathname === '/favorites' ||
-      /^\/property\/[^/]+$/.test(pathname);
+  const storeToken = (token) => {
+    localStorage.setItem('tikangToken', token);
+  };
 
-      if (!token) {
-        if (!isOnAuthPage) {
-          window.location.href = '/login'; // Redirect only if not already on /login
-        }
-        return;
-      }
+  const removeToken = () => {
+    localStorage.removeItem('tikangToken');
+  };
 
-      try {
-        const res = await fetch(`${process.env.REACT_APP_API_URL_GUEST}/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!res.ok) {
-          throw new Error('Invalid or expired token');
-        }
-
-        const data = await res.json();
-        setUser(data.user);
-      } catch (err) {
-        console.error('Auto-login failed:', err);
-        localStorage.removeItem('tikangToken');
-        setUser(null);
-
-        if (!isOnAuthPage) {
-          window.location.href = '/login'; // Redirect only if not already on /login
-        }
-      }
-    };
-
-    validateToken();
-  }, []);
-
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     const token = localStorage.getItem('tikangToken');
-    if (!token) return null;
-  
+    if (!token) {
+      setUser(null);
+      setUserLoaded(true);
+      return null;
+    }
+
     try {
       const res = await fetch(`${process.env.REACT_APP_API_URL_GUEST}/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-  
-      if (!res.ok) throw new Error('Invalid token');
-  
-      // Backend confirms token is valid — now decode and set
-      const decoded = jwtDecode(token);
-      if (!decoded || !decoded.email || !decoded.userId) {
-        throw new Error('Decoded token missing required fields');
-      }
-  
-      setUser(decoded);
-      return decoded;
+
+      if (!res.ok) throw new Error('Invalid or expired token');
+
+      const data = await res.json();
+      setUser(data.user);
+      return data.user;
     } catch (err) {
       console.error('fetchUser error:', err);
-      localStorage.removeItem('tikangToken');
+      removeToken();
       setUser(null);
+      return null;
+    } finally {
+      setUserLoaded(true);
+    }
+  }, []);
+
+  const validateToken = async () => {
+    const token = localStorage.getItem('tikangToken');
+    const pathname = window.location.pathname;
+
+    const isPublicPage = [
+      '/',
+      '/login',
+      '/register',
+      '/forgot-password',
+      '/book',
+      '/search',
+      '/top-city-search',
+      '/owner-login',
+      '/owner',
+      '/favorites',
+    ].includes(pathname) || /^\/property\/[^/]+$/.test(pathname);
+
+    if (!token) {
+      if (!isPublicPage) window.location.href = '/login';
+      return null;
+    }
+
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL_GUEST}/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) throw new Error('Invalid token');
+
+      const data = await res.json();
+      setUser(data.user);
+      return data.user;
+    } catch (err) {
+      console.error('validateToken failed:', err);
+      removeToken();
+      setUser(null);
+      if (!isPublicPage) window.location.href = '/login';
       return null;
     }
   };
@@ -87,8 +87,8 @@ export const AuthProvider = ({ children }) => {
   const login = (token) => {
     try {
       const decoded = jwtDecode(token);
-      if (decoded.full_name && decoded.email) {
-        localStorage.setItem('tikangToken', token);
+      if (decoded?.full_name && decoded?.email) {
+        storeToken(token);
         setUser(decoded);
       } else {
         throw new Error('Token missing required fields');
@@ -105,21 +105,30 @@ export const AuthProvider = ({ children }) => {
     try {
       await fetch(`${process.env.REACT_APP_API_URL_GUEST}/logout`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
     } catch (err) {
       console.error('Logout failed:', err);
     }
 
-    localStorage.removeItem('tikangToken');
+    removeToken();
     setUser(null);
-    window.location.href = '/login'; // Redirect after logout
+    window.location.href = '/login';
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, setUser, fetchUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        setUser,
+        login,
+        logout,
+        fetchUser,
+        validateToken,
+        storeToken,
+        userLoaded, // ✅ Export this for UI guards
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

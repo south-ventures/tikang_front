@@ -9,22 +9,29 @@ import {
   FaHome,
   FaTag,
 } from 'react-icons/fa';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function Bookings() {
+  const { fetchUser } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('pending');
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const navigate = useNavigate();
-
   useEffect(() => {
     const fetchBookings = async () => {
       try {
+        await fetchUser(); // ensures user is loaded and token is valid
         const token = localStorage.getItem('tikangToken');
+        if (!token) return;
+  
         const res = await fetch(`${process.env.REACT_APP_API_URL_GUEST}/bookings`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+  
         const data = await res.json();
         if (data?.bookings) setBookings(data.bookings);
       } catch (error) {
@@ -33,15 +40,58 @@ export default function Bookings() {
         setLoading(false);
       }
     };
+  
     fetchBookings();
-  }, []);
+  }, [fetchUser]);
 
   const filteredBookings = bookings.filter(
     (b) => b.booking_status?.toLowerCase() === activeTab
   );
 
+  const handleCancelBooking = async () => {
+    if (!cancelReason.trim()) {
+      alert("Please provide a reason for cancellation.");
+      return;
+    }
+
+    const token = localStorage.getItem('tikangToken');
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL_GUEST}/cancel-booking`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          booking_id: selectedBooking.booking_id,
+          cancel_reason: cancelReason,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert('Booking cancelled successfully!');
+        setShowCancelModal(false);
+        setCancelReason('');
+        setBookings((prev) =>
+          prev.map((b) =>
+            b.booking_id === selectedBooking.booking_id
+              ? { ...b, booking_status: 'cancelled', cancel_reason: cancelReason }
+              : b
+          )
+        );
+      } else {
+        alert(data.message || 'Failed to cancel booking.');
+      }
+    } catch (err) {
+      console.error('❌ Cancel failed:', err);
+      alert('An error occurred while cancelling the booking.');
+    }
+  };
+
   const renderBookingCard = (booking) => {
     const bg = `${process.env.REACT_APP_API_URL}${booking.thumbnail_url}` || '/assets/hotel_default.webp';
+
     return (
       <div
         key={booking.booking_id}
@@ -80,11 +130,25 @@ export default function Bookings() {
             </p>
           </div>
           <div className="flex justify-between pt-3">
+            {booking.booking_status === 'completed' && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate('/account/reviews');
+                }}
+                className={`text-sm font-semibold hover:underline ${
+                  booking.review_id ? 'text-blue-600' : 'text-green-600'
+                }`}
+              >
+                {booking.review_id ? 'View Review' : 'Leave Review'}
+              </button>
+            )}
             {['pending', 'confirmed'].includes(booking.booking_status?.toLowerCase()) && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  alert('Cancel booking logic goes here.');
+                  setSelectedBooking(booking);
+                  setShowCancelModal(true);
                 }}
                 className="text-sm text-red-600 font-semibold hover:underline"
               >
@@ -96,7 +160,7 @@ export default function Bookings() {
               onClick={(e) => {
                 e.stopPropagation();
                 setSelectedBooking(booking);
-                setShowReceipt(false); // optional: reset receipt visibility
+                setShowReceipt(false);
               }}
             >
               View Info
@@ -117,7 +181,6 @@ export default function Bookings() {
         className="relative bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto w-full md:max-w-2xl mx-auto box-border"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header image */}
         <div className="w-full h-64 overflow-hidden rounded-t-2xl">
           <img
             src={booking.thumbnail_url ? `${process.env.REACT_APP_API_URL}${booking.thumbnail_url}` : '/assets/hotel_default.webp'}
@@ -126,7 +189,6 @@ export default function Bookings() {
           />
         </div>
 
-        {/* Info */}
         <div className="px-8 py-6 space-y-4">
           <h2 className="text-2xl font-bold text-gray-800">{booking.title}</h2>
           <p className="text-sm text-gray-500">{booking.address}</p>
@@ -144,7 +206,6 @@ export default function Bookings() {
           </div>
         </div>
 
-        {/* Rooms */}
         {booking.rooms?.length > 0 && (
           <div className="px-8 pb-6">
             <h3 className="text-lg font-semibold mb-4 text-gray-800">Room Details</h3>
@@ -170,16 +231,13 @@ export default function Bookings() {
           </div>
         )}
 
-        {/* Action Buttons */}
         <div className="px-8 pb-4 mt-4 space-y-4">
           <div className="flex justify-center gap-4 flex-wrap">
-          <button
-              onClick={(e) => {
-                e.stopPropagation();
+            <button
+              onClick={() => {
                 const today = new Date();
                 const tomorrow = new Date();
                 tomorrow.setDate(today.getDate() + 1);
-
                 navigate(`/property/${booking.title.toLowerCase().replace(/\s+/g, '-')}`, {
                   state: {
                     property_id: booking.property_id,
@@ -205,19 +263,8 @@ export default function Bookings() {
               </button>
             )}
           </div>
-          {['pending', 'confirmed'].includes(booking.booking_status?.toLowerCase()) && (
-            <div className="flex justify-center">
-              <button
-                onClick={() => alert('Cancel booking logic goes here.')}
-                className="bg-red-600 text-white px-8 py-3 text-sm sm:text-base rounded-full shadow hover:bg-red-700 transition duration-200"
-              >
-                Cancel Booking
-              </button>
-            </div>
-          )}
         </div>
 
-        {/* Receipt */}
         {showReceipt && receiptUrl && (
           <div className="px-8 pb-8 flex justify-center">
             <img
@@ -235,9 +282,8 @@ export default function Bookings() {
     <div className="px-4 py-6 max-w-full sm:max-w-6xl mx-auto">
       <h1 className="text-3xl font-bold text-gray-800 mb-6">My Bookings</h1>
 
-      {/* Tabs */}
       <div className="flex gap-2 overflow-x-auto sm:gap-4 mb-6">
-        {['pending', 'confirmed', 'completed', 'cancelled'].map((tab) => (
+        {['pending', 'confirmed', 'ongoing', 'completed', 'cancelled'].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -252,7 +298,6 @@ export default function Bookings() {
         ))}
       </div>
 
-      {/* Content */}
       {loading ? (
         <LoadingSpinner />
       ) : filteredBookings.length === 0 ? (
@@ -265,12 +310,57 @@ export default function Bookings() {
         </div>
       )}
 
-      {/* Modal */}
       {selectedBooking && (
         <div onClick={() => setSelectedBooking(null)}>
           <Modal onClose={() => setSelectedBooking(null)}>
             {renderModalContent(selectedBooking)}
           </Modal>
+        </div>
+      )}
+
+      {showCancelModal && selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center px-4">
+          <div
+            className="bg-white rounded-2xl w-full max-w-xl p-8 space-y-6 relative shadow-2xl animate-fadeIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-2xl font-bold text-gray-900">Cancel Booking</h2>
+            <p className="text-base text-gray-700 leading-relaxed">
+              Please provide a reason for cancelling this booking.
+              <br />
+              <span className="text-red-600 font-semibold block mt-2">
+                Important Notice:
+              </span>
+              <span className="text-gray-800">
+                Cancelling will only refund <strong>50%</strong> of your total payment (
+                <strong>₱{Number(selectedBooking?.total_price * 0.5).toFixed(2)}</strong>).
+              </span>
+            </p>
+            <textarea
+              rows={5}
+              className="w-full border border-gray-300 rounded-lg p-4 text-base text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+              placeholder="Write your cancellation reason here..."
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+            ></textarea>
+            <div className="flex justify-end gap-4 mt-6">
+              <button
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setCancelReason('');
+                }}
+                className="px-5 py-2 text-base bg-gray-200 text-gray-800 rounded-full hover:bg-gray-300 transition"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleCancelBooking}
+                className="px-6 py-2 text-base bg-red-600 text-white rounded-full hover:bg-red-700 transition font-semibold"
+              >
+                Confirm Cancellation
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -5,28 +5,28 @@ import { useNavigate } from 'react-router-dom';
 
 const slides = [
   {
-    image: 'image_1.webp',
+    image: `${process.env.REACT_APP_API_URL}/uploads/banners/banner1.png`,
     text: 'Discover Cozy Homes',
     button: 'See Recommendation',
     action: 'scroll',
     target: '#recommended-homes',
   },
   {
-    image: 'image_2.webp',
+    image: `${process.env.REACT_APP_API_URL}/uploads/banners/banner2.png`,
     text: 'Become an Owner',
     button: 'Rent Your Own Place',
     action: 'navigate',
     target: '/owner',
   },
   {
-    image: 'image_3.webp',
+    image: `${process.env.REACT_APP_API_URL}/uploads/banners/banner3.png`,
     text: 'Learn About Tikang',
     button: 'About Tikang',
     action: 'navigate',
     target: '/about-us',
   },
   {
-    image: 'image_4.webp',
+    image: `${process.env.REACT_APP_API_URL}/uploads/banners/banner4.png`,
     text: 'Stay Like a Local',
     button: 'Find A Place',
     action: 'navigate',
@@ -34,7 +34,7 @@ const slides = [
     isDiscountedSearch: true,
   },
   {
-    image: 'image_5.webp',
+    image: `${process.env.REACT_APP_API_URL}/uploads/banners/banner5.png`,
     text: 'Big Offers Await!',
     button: 'View Discounted Offers',
     action: 'navigate',
@@ -42,6 +42,7 @@ const slides = [
     isDiscountedSearch: true,
   },
 ];
+
 
 export default function CarouselSection() {
   const navigate = useNavigate();
@@ -88,7 +89,7 @@ export default function CarouselSection() {
         {slides.map((slide, index) => (
           <div key={index} className="relative">
             <img
-              src={`/assets/${slide.image}`}
+              src={slide.image}
               alt={`Slide ${index + 1}`}
               className="h-[60vh] w-full object-cover"
             />

@@ -6,7 +6,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 const BookForm = () => {
   const navigate = useNavigate();
   const { state } = useLocation();
-  const { user, fetchUser } = useAuth();
+  const { user, fetchUser, userLoaded } = useAuth();
   const [adminGcashQr, setAdminGcashQr] = useState(null);
   const [showQrOverlay, setShowQrOverlay] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -24,7 +24,15 @@ const BookForm = () => {
   const [unlockedStep, setUnlockedStep] = useState(1);
 
   useEffect(() => {
-    if (!user) fetchUser();
+    const restoreUser = async () => {
+      const token = localStorage.getItem('tikangToken');
+      if (token && !user) {
+        await fetchUser();
+      }
+    };
+  
+    restoreUser();
+  
     const fetchAdminQR = async () => {
       try {
         const response = await fetch(`${process.env.REACT_APP_API_URL_GUEST}/admin/gcash-qr`);
@@ -36,8 +44,9 @@ const BookForm = () => {
         console.error('Failed to load admin GCash QR:', err);
       }
     };
-    
+  
     fetchAdminQR();
+    console.log(user);
   }, [user, fetchUser]);
 
   const formatCurrency = (price) => `₱${parseFloat(price).toFixed(2)}`;
@@ -151,7 +160,7 @@ const BookForm = () => {
           <LoadingSpinner />
         </div>
       )}
-      {!user && (
+      {userLoaded && !user && (
         <div className="absolute z-50 top-0 left-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center">
           <div className="bg-white p-8 rounded-lg shadow-lg text-center max-w-sm w-full">
             <h2 className="text-lg font-bold text-gray-800 mb-2">🔒 Please log in to continue your booking.</h2>

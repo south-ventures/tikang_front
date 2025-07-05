@@ -19,17 +19,22 @@ const Messages = () => {
   }, []);
 
   const fetchMessages = useCallback(async () => {
-    if (!user) return;
+    let currentUser = user;
+    if (!currentUser) {
+      currentUser = await fetchUser();
+      if (!currentUser) return;
+    }
+  
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL_MESSAGE}/conversations/${user.user_id}`);
+      const res = await fetch(`${process.env.REACT_APP_API_URL_MESSAGE}/conversations/${currentUser.user_id}`);
       const data = await res.json();
-
+  
       const grouped = data.reduce((acc, msg) => {
-        const isSender = msg.sender_id === user.user_id;
+        const isSender = msg.sender_id === currentUser.user_id;
         const otherUserId = isSender ? msg.recipient_id : msg.sender_id;
         const otherUserName = isSender ? msg.recipient_name : msg.sender_name;
         const otherUserType = isSender ? msg.recipient_type : msg.sender_type;
-
+  
         if (!acc[otherUserId]) {
           acc[otherUserId] = {
             name: otherUserName,
@@ -39,13 +44,13 @@ const Messages = () => {
             property_id: msg.property_id || null,
           };
         }
-
+  
         acc[otherUserId].messages.push(msg);
         return acc;
       }, {});
-
+  
       setGroupedMessages(grouped);
-
+  
       if (!activeUserId) {
         const firstUserId = Object.keys(grouped)[0];
         if (firstUserId) setActiveUserId(firstUserId);
@@ -53,7 +58,8 @@ const Messages = () => {
     } catch (err) {
       console.error('Failed to load messages:', err);
     }
-  }, [user, activeUserId]);
+  }, [user, fetchUser, activeUserId]);
+  
 
   useEffect(() => {
     fetchMessages();
@@ -67,7 +73,10 @@ const Messages = () => {
     if (!title || !newMessage || !activeUserId) return;
 
     let currentUser = user;
-    if (!currentUser) currentUser = await fetchUser();
+    if (!currentUser) {
+      currentUser = await fetchUser();
+      if (!currentUser) return;
+    }
 
     const sender_id = currentUser?.user_id;
     const recipient_id = activeUserId;

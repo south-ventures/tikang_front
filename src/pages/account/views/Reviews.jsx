@@ -1,218 +1,325 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { FaStar } from 'react-icons/fa';
+import { format } from 'date-fns';
 import Modal from '../../../components/Modal';
 import LoadingSpinner from '../../../components/LoadingSpinner';
-import { format } from 'date-fns';
+import WarningPopup from '../../../components/WarningPopup';
 import { useAuth } from '../../../context/AuthContext';
 
 export default function Reviews() {
-  useAuth(); // Keeping context available if needed elsewhere
-
-  const [reviews, setReviews] = useState([]);
-  const [unreviewed, setUnreviewed] = useState([]);
-  const [selectedReview, setSelectedReview] = useState(null);
-  const [activeTab, setActiveTab] = useState('to-review');
+  const { fetchUser } = useAuth();
+  const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('to-review');
+  const [selectedReview, setSelectedReview] = useState(null);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ comment: '', rating: 0, images: [] });
+  const [alert, setAlert] = useState({ message: '', type: '' });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
+      await fetchUser();
       const token = localStorage.getItem('tikangToken');
-      const headers = { Authorization: `Bearer ${token}` };
+      if (!token) return;
 
-      const [reviewedRes, unreviewedRes] = await Promise.all([
-        fetch(`${process.env.REACT_APP_API_URL_GUEST}/reviews`, { headers }),
-        fetch(`${process.env.REACT_APP_API_URL_GUEST}/no-reviews`, { headers })
-      ]);
+      const res = await fetch(`${process.env.REACT_APP_API_URL_GUEST}/reviews`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-      const reviewedData = await reviewedRes.json();
-      const unreviewedData = await unreviewedRes.json();
-
-      setReviews(reviewedData.reviews || []);
-      setUnreviewed(unreviewedData.bookings || []);
+      const data = await res.json();
+      setBookings(data.bookings || []);
     } catch (err) {
-      console.error('Error fetching review data:', err);
+      console.error('Error fetching reviews:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchUser]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
+
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+    setReviewForm({ ...reviewForm, images: files });
+  };
+
+  const handleSubmitReview = async () => {
+    const formData = new FormData();
+    formData.append('booking_id', selectedReview.booking_id);
+    formData.append('comment', reviewForm.comment);
+    formData.append('rating', reviewForm.rating);
+    reviewForm.images.forEach((file) => formData.append('images', file));
+
+    try {
+      const token = localStorage.getItem('tikangToken');
+      const res = await fetch(`${process.env.REACT_APP_API_URL_GUEST}/submit-review`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setAlert({ message: 'Review submitted successfully!', type: 'success' });
+        setShowReviewForm(false);
+        setSelectedReview(null);
+        fetchData();
+      } else {
+        setAlert({ message: data.message || 'Failed to submit review.', type: 'error' });
+      }
+    } catch (err) {
+      console.error('Submit review error:', err);
+      setAlert({ message: 'Unexpected error occurred.', type: 'error' });
+    }
+
+    setTimeout(() => setAlert({ message: '', type: '' }), 4000);
+  };
 
   if (loading) return <LoadingSpinner />;
 
-  return (
-    <div className="max-w-5xl mx-auto py-10 px-4">
-      <h1 className="text-2xl font-bold mb-6">My Reviews</h1>
+  const reviewed = bookings.filter((b) => b.is_reviewed);
+  const unreviewed = bookings.filter((b) => !b.is_reviewed);
 
-      {/* Tabs */}
-      <div className="flex gap-4 mb-6">
-        <button
-          onClick={() => setActiveTab('to-review')}
-          className={`px-4 py-2 rounded-t font-semibold ${
-            activeTab === 'to-review' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
-          }`}
-        >
-          To Review
-        </button>
-        <button
-          onClick={() => setActiveTab('reviewed')}
-          className={`px-4 py-2 rounded-t font-semibold ${
-            activeTab === 'reviewed' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
-          }`}
-        >
-          Reviewed
-        </button>
+  const renderCard = (b) => {
+    const image = b.thumbnail_url
+      ? `${process.env.REACT_APP_API_URL}${b.thumbnail_url}`
+      : '/assets/hotel_default.webp';
+
+    return (
+      <div
+        key={b.booking_id}
+        className="bg-white rounded-xl overflow-hidden shadow hover:shadow-lg transition cursor-pointer"
+        onClick={() => setSelectedReview(b)}
+      >
+        <div className="h-48 bg-gray-200">
+          <img src={image} alt={b.title} className="w-full h-full object-cover" />
+        </div>
+        <div className="p-4 space-y-2">
+          <h2 className="font-semibold text-lg text-gray-800">{b.title}</h2>
+          <p className="text-sm text-gray-500">{b.address}</p>
+          <p className="text-sm text-gray-600">
+            {format(new Date(b.check_in_date), 'MMM dd')} - {format(new Date(b.check_out_date), 'MMM dd, yyyy')}
+          </p>
+          <div className="flex items-center gap-1 pt-1">
+            {b.is_reviewed ? (
+              [...Array(5)].map((_, j) => (
+                <FaStar key={j} className={`h-4 w-4 ${j < b.rating ? 'text-yellow-400' : 'text-gray-300'}`} />
+              ))
+            ) : (
+              <button
+                className="px-3 py-1 mt-2 bg-blue-600 text-white text-sm rounded-full hover:bg-blue-700 transition"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedReview(b);
+                  setShowReviewForm(true);
+                  setReviewForm({ comment: '', rating: 0, images: [] });
+                }}
+              >
+                Leave a Review
+              </button>
+            )}
+          </div>
+          {b.is_reviewed && <p className="text-sm italic mt-2">"{b.comment}"</p>}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="px-4 py-6 max-w-full sm:max-w-6xl mx-auto">
+      <h1 className="text-3xl font-bold text-gray-800 mb-6">My Reviews</h1>
+
+      {alert.message && (
+        <WarningPopup
+          type={alert.type}
+          message={alert.message}
+          onClose={() => setAlert({ message: '', type: '' })}
+        />
+      )}
+      <div className="flex gap-2 overflow-x-auto sm:gap-4 mb-6">
+        {['to-review', 'reviewed'].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-5 py-2 rounded-full font-semibold capitalize transition ${
+              activeTab === tab ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            {tab === 'to-review' ? 'To Review' : 'Reviewed'}
+          </button>
+        ))}
       </div>
 
-      {/* To Review Tab */}
-      {activeTab === 'to-review' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {unreviewed.length === 0 ? (
-            <div className="col-span-full text-left text-gray-500">No bookings to review yet.</div>
-          ) : (
-            unreviewed.map((booking, index) => (
-              <div key={index} className="bg-white border rounded-lg p-4 shadow">
-                <h2 className="text-lg font-semibold text-gray-800">{booking.property_name}</h2>
-                <p className="text-sm text-gray-600 mb-1">
-                  {format(new Date(booking.check_in_date), 'MMM dd, yyyy')} –{' '}
-                  {format(new Date(booking.check_out_date), 'MMM dd, yyyy')}
-                </p>
-                <p className="text-sm text-gray-500 mb-2">Stay Type: {booking.stay_type}</p>
-                <button
-                  className="text-white bg-blue-600 hover:bg-blue-700 text-sm px-4 py-2 rounded mt-2"
-                  onClick={() => alert('Review Now modal or redirect logic here')}
-                >
-                  Review Now
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {(activeTab === 'to-review' ? unreviewed : reviewed).map(renderCard)}
+      </div>
 
-      {/* Reviewed Tab */}
-      {activeTab === 'reviewed' && (
-        <div className="space-y-6">
-          {reviews.length === 0 ? (
-            <p className="text-gray-500">You haven’t reviewed any stays yet.</p>
-          ) : (
-            reviews.map((review, index) => {
-              const bg = review.thumbnail_url || '/assets/hotel_default.webp';
-              return (
-                <div
-                  key={index}
-                  className="relative overflow-hidden rounded-xl shadow-md border border-gray-200"
-                  style={{
-                    backgroundImage: `url(${bg})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                  }}
-                >
-                  <div className="backdrop-blur-sm bg-white/80 p-5 relative z-10">
-                    <h2 className="text-lg font-semibold text-gray-800">{review.property_name}</h2>
-                    <p className="text-sm text-gray-600 mb-1">
-                      {format(new Date(review.check_in_date), 'MMMM dd, yyyy')} –{' '}
-                      {format(new Date(review.check_out_date), 'MMMM dd, yyyy')}
-                    </p>
-                    <p className="text-sm text-gray-700 italic mb-2">"{review.comment}"</p>
-                    <div className="flex items-center gap-1 mb-2">
-                      {[...Array(5)].map((_, i) => (
-                        <FaStar
-                          key={i}
-                          className={`h-4 w-4 ${i < review.rating ? 'text-yellow-400' : 'text-gray-300'}`}
-                        />
-                      ))}
+      {selectedReview && !showReviewForm && (
+      <Modal onClose={() => setSelectedReview(null)}>
+        <div className="max-h-[90vh] overflow-y-auto p-4 w-full">
+          <h2 className="text-2xl font-semibold text-gray-800">{selectedReview.title}</h2>
+          <p className="text-sm text-gray-600">{selectedReview.address}</p>
+          <p className="text-sm text-gray-500">
+            {format(new Date(selectedReview.check_in_date), 'MMM dd, yyyy')} -{' '}
+            {format(new Date(selectedReview.check_out_date), 'MMM dd, yyyy')}
+          </p>
+
+          <div className="w-full h-64 rounded-lg overflow-hidden mt-2">
+            <img
+              src={
+                selectedReview.thumbnail_url
+                  ? `${process.env.REACT_APP_API_URL}${selectedReview.thumbnail_url}`
+                  : '/assets/hotel_default.webp'
+              }
+              alt="Property"
+              className="w-full h-full object-cover rounded-lg"
+            />
+          </div>
+
+          <div className="text-sm space-y-1 mt-3">
+            <p><strong>Guests:</strong> {selectedReview.num_adults} Adults, {selectedReview.num_children} Children</p>
+            <p><strong>Rooms:</strong> {selectedReview.num_rooms}</p>
+            <p><strong>Payment Status:</strong> {selectedReview.payment_status}</p>
+          </div>
+
+          {selectedReview.rooms?.length > 0 && (
+            <div className="pt-4">
+              <h3 className="text-lg font-semibold mb-3 text-gray-800">Room Details</h3>
+              <div className="space-y-4">
+                {selectedReview.rooms.map((room, idx) => (
+                  <div key={idx} className="flex gap-4 items-start bg-gray-50 border rounded-xl p-4">
+                    <img
+                      src={room.room_images?.[0]
+                        ? `${process.env.REACT_APP_API_URL}${room.room_images[0]}`
+                        : '/assets/room_placeholder.webp'}
+                      alt={`Room ${idx}`}
+                      className="w-32 h-24 object-cover rounded-lg border"
+                    />
+                    <div className="text-sm space-y-1">
+                      <p><strong>Name:</strong> {room.room_name}</p>
+                      <p><strong>Type:</strong> {room.room_type}</p>
+                      <p><strong>Stay Type:</strong> {room.stay_type}</p>
+                      <p><strong>Price/Night:</strong> ₱{room.price_per_night}</p>
                     </div>
-                    <button
-                      onClick={() => setSelectedReview(review)}
-                      className="absolute top-4 right-4 bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1 rounded"
-                    >
-                      View Info
-                    </button>
                   </div>
-                  <div className="absolute inset-0 bg-black opacity-10" />
-                </div>
-              );
-            })
+                ))}
+              </div>
+            </div>
           )}
-        </div>
-      )}
 
-      {selectedReview && (
-        <Modal onClose={() => setSelectedReview(null)}>
-          <div
-            className="relative bg-white rounded-xl shadow-lg overflow-hidden border border-gray-300 max-h-[90vh] overflow-y-auto"
-            style={{
-              backgroundImage: `url(${selectedReview.thumbnail_url || '/assets/hotel_default.webp'})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }}
-          >
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-              <h2 className="text-2xl font-bold">{selectedReview.property_name}</h2>
-
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm text-white/90">
-                <p><strong>Check-in:</strong> {format(new Date(selectedReview.check_in_date), 'MMMM dd, yyyy')}</p>
-                <p><strong>Check-out:</strong> {format(new Date(selectedReview.check_out_date), 'MMMM dd, yyyy')}</p>
-                <p><strong>Adults:</strong> {selectedReview.num_adults}</p>
-                <p><strong>Children:</strong> {selectedReview.num_children}</p>
-                <p><strong>Rooms:</strong> {selectedReview.num_rooms}</p>
-                <p><strong>Stay Type:</strong> {selectedReview.stay_type}</p>
+          {selectedReview.is_reviewed && (
+            <div className="pt-4">
+              <h3 className="text-lg font-semibold mb-2 text-gray-800">Your Review</h3>
+              <div className="flex items-center gap-1 mb-2">
+                {[...Array(5)].map((_, i) => (
+                  <FaStar
+                    key={i}
+                    className={`h-5 w-5 ${i < selectedReview.rating ? 'text-yellow-400' : 'text-gray-300'}`}
+                  />
+                ))}
               </div>
 
-              <div>
-                <h3 className="text-lg font-semibold mb-1">Comment</h3>
-                <p className="text-sm italic text-white/90">{selectedReview.comment}</p>
-              </div>
+              <p className="text-sm italic text-gray-700">"{selectedReview.comment}"</p>
 
-              <div>
-                <h3 className="text-lg font-semibold mb-1">Rating</h3>
-                <div className="flex items-center gap-1">
-                  {[...Array(5)].map((_, i) => (
-                    <FaStar
+              {selectedReview.review_images?.length > 0 && (
+                <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {selectedReview.review_images.map((img, i) => (
+                    <img
                       key={i}
-                      className={`h-5 w-5 ${i < selectedReview.rating ? 'text-yellow-400' : 'text-gray-400'}`}
+                      src={`${process.env.REACT_APP_API_URL}${img}`}
+                      alt={`Review ${i + 1}`}
+                      className="w-full h-32 object-cover rounded-lg border"
                     />
                   ))}
                 </div>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-semibold mb-1">Room Details</h3>
-                {selectedReview.rooms?.length > 0 ? (
-                  <ul className="list-disc list-inside text-sm">
-                    {selectedReview.rooms.map((room, i) => (
-                      <li key={i}>{room.room_name} – {room.room_type}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm italic text-white/80">No room details available.</p>
-                )}
-              </div>
-
-              <div>
-                <h3 className="text-lg font-semibold mb-1">Review Images</h3>
-                {selectedReview.review_images?.length > 0 ? (
-                  <div className="flex flex-wrap gap-3 mt-2">
-                    {selectedReview.review_images.map((img, i) => (
-                      <img
-                        key={i}
-                        src={img}
-                        alt={`Room view ${i + 1}`}
-                        className="w-24 h-24 rounded-lg object-cover border border-white/40 shadow-sm"
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm italic text-white/80">No images provided.</p>
-                )}
-              </div>
+              )}
             </div>
-          </div>
+          )}
+
+          {!selectedReview.is_reviewed && (
+            <button
+              className="mt-6 w-full bg-blue-600 text-white py-2 rounded-full hover:bg-blue-700 transition"
+              onClick={() => {
+                setShowReviewForm(true);
+                setReviewForm({ comment: '', rating: 0, images: [] });
+              }}
+            >
+              Leave a Review
+            </button>
+          )}
+        </div>
+      </Modal>
+    )}
+
+
+      {/* Submit Review Modal */}
+      {showReviewForm && selectedReview && (
+        <Modal
+          onClose={() => {
+            setShowReviewForm(false);
+            setSelectedReview(null);
+          }}
+        >
+          <>
+            <h2 className="text-xl font-semibold mb-3">Submit Your Review</h2>
+            <p className="text-sm mb-2 text-gray-600">
+              <strong>{selectedReview.title}</strong><br />
+              {format(new Date(selectedReview.check_in_date), 'MMM dd')} -{' '}
+              {format(new Date(selectedReview.check_out_date), 'MMM dd, yyyy')}
+            </p>
+
+            <label className="block text-sm font-medium mt-3">Comment</label>
+            <textarea
+              rows={3}
+              className={`w-full mt-1 border rounded p-2 text-sm ${
+                reviewForm.comment.trim() === '' && alert.type === 'error' ? 'border-red-500' : ''
+              }`}
+              value={reviewForm.comment}
+              onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
+            />
+            {reviewForm.comment.trim() === '' && alert.type === 'error' && (
+              <p className="text-sm text-red-500 mt-1">Comment is required.</p>
+            )}
+
+            <label className="block text-sm font-medium mt-3">Rating</label>
+            <div className="flex items-center gap-1 mt-1">
+              {[...Array(5)].map((_, i) => (
+                <FaStar
+                  key={i}
+                  className={`cursor-pointer h-5 w-5 ${i < reviewForm.rating ? 'text-yellow-400' : 'text-gray-300'}`}
+                  onClick={() => setReviewForm({ ...reviewForm, rating: i + 1 })}
+                />
+              ))}
+            </div>
+            {reviewForm.rating === 0 && alert.type === 'error' && (
+              <p className="text-sm text-red-500 mt-1">Rating is required.</p>
+            )}
+
+            <label className="block text-sm font-medium mt-3">Upload Images</label>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="block w-full text-sm text-gray-600 mt-1"
+            />
+
+            <button
+              onClick={() => {
+                if (!reviewForm.comment.trim() || reviewForm.rating === 0) {
+                  setAlert({ message: 'Please fill out all required fields.', type: 'error' });
+                  return;
+                }
+                handleSubmitReview();
+              }}
+              className="mt-5 w-full bg-blue-600 text-white py-2 rounded-full hover:bg-blue-700"
+            >
+              Submit Review
+            </button>
+          </>
         </Modal>
-)}
+      )}
     </div>
   );
 }

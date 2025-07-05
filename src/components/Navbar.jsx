@@ -11,13 +11,46 @@ import {
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import logo from '../assets/logo.png';
 import { useAuth } from '../context/AuthContext';
+import OwnerRedirectModal from './OwnerRedirectModal'; 
 
 export default function NavBar() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [problemText, setProblemText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmitProblem = async () => {
+    if (!problemText.trim()) return alert("Please describe your problem.");
+    setSubmitting(true);
+
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL_GUEST}/submit-problem`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user?.user_id,
+          message: problemText,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert("Problem submitted successfully.");
+        setProblemText('');
+        setShowReportModal(false);
+      } else {
+        alert(data.message || "Failed to submit.");
+      }
+    } catch (err) {
+      console.error("Error submitting problem:", err);
+      alert("Something went wrong.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const searchParams = location.state || {};
   const {
@@ -40,6 +73,8 @@ export default function NavBar() {
   const [adultCount, setAdultCount] = useState(2);
   const [roomCount, setRoomCount] = useState(1);
   const [childCount, setChildCount] = useState(0);
+
+  const [ownerModalOpen, setOwnerModalOpen] = useState(false);
 
   const calendarRef = useRef(null);
   const guestRef = useRef(null);
@@ -125,9 +160,14 @@ export default function NavBar() {
   return (
     <nav className="fixed top-0 left-0 w-full z-50 bg-[#D4EDDA] shadow-md px-4 py-3">
       <div className="flex items-center justify-between max-w-screen-xl mx-auto">
-        <Link to="/" className="flex items-center gap-2">
-          <img src={logo} alt="Tikang Logo" className="h-10 w-auto object-contain" />
-        </Link>
+      <Link to="/dashboard" className="flex items-center gap-2">
+        <img
+          src={`${process.env.REACT_APP_API_URL}/uploads/logo/logo.png`}
+          alt="Tikang Logo"
+          className="h-16 w-auto object-contain cursor-pointer"
+          onError={e => { e.currentTarget.src = '/fallback-logo.png'; }} // optional fallback
+        />
+      </Link>
 
         {/* Desktop Search */}
         <div className="hidden sm:flex flex-1 max-w-3xl mx-6">
@@ -227,28 +267,58 @@ export default function NavBar() {
 
         {/* Desktop Account / Menu */}
         <div className="hidden lg:flex items-center gap-6 text-sm font-medium text-gray-700">
-          <Link to="/owner" className="hover:text-green-600">List your Property</Link>
+        <button
+                onClick={() => setShowReportModal(true)}
+                className="px-3 py-1 text-xs font-medium bg-yellow-100 text-yellow-700 rounded-full hover:bg-yellow-200 transition"
+              >
+                Report
+        </button>
+        {!user ? (
+            <Link to="/owner" className="hover:text-green-600">
+              List your Property
+            </Link>
+          ) : (
+            <button
+              onClick={() => setOwnerModalOpen(true)}
+              className="hover:text-green-600"
+            >
+              Homeowner Centre
+            </button>
+          )}
           <Link to="/favorites" className="hover:text-green-600">Favorites</Link>
           {user ? (
-            <div
-              className="relative"
-              onMouseEnter={() => setProfileDropdownOpen(true)}
-              onMouseLeave={() => setProfileDropdownOpen(false)}
+            <div className="relative">
+            <button
+              onClick={() => setProfileDropdownOpen((prev) => !prev)}
+              className="hover:text-green-600 font-semibold text-sm"
             >
-              <button className="hover:text-green-600 font-semibold text-sm">
-                Welcome, {user?.full_name?.split(' ')[0] || 'User'}
+              Welcome, {user?.full_name?.split(' ')[0] || 'User'}
+            </button>
+
+            {profileDropdownOpen && (
+              <div
+                className="absolute top-full mt-0 left-0 bg-white border rounded shadow-md w-48 z-50"
+              >
+                <Link to="/account/information" className="block px-4 py-2 hover:bg-gray-100 text-sm">My Account</Link>
+                <Link to="/account/bookings" className="block px-4 py-2 hover:bg-gray-100 text-sm">Bookings</Link>
+                <Link to="/account/messages" className="block px-4 py-2 hover:bg-gray-100 text-sm">Messages</Link>
+                <Link to="/account/tikangcash" className="block px-4 py-2 hover:bg-gray-100 text-sm">TikangCash</Link>
+                <Link to="/account/reviews" className="block px-4 py-2 hover:bg-gray-100 text-sm">Reviews</Link>
+                <button
+                onClick={() => setShowReportModal(true)}
+                className="px-3 py-1 text-xs font-medium bg-yellow-100 text-yellow-700 rounded-full hover:bg-yellow-200 transition"
+              >
+                Report
               </button>
-              {profileDropdownOpen && (
-                <div className="absolute top-full mt-0 left-1 right-0 bg-white border rounded shadow-md w-48 z-50">
-                  <Link to="/account/information" className="block px-4 py-2 hover:bg-gray-100 text-sm">My Account</Link>
-                  <Link to="/account/bookings" className="block px-4 py-2 hover:bg-gray-100 text-sm">Bookings</Link>
-                  <Link to="/account/messages" className="block px-4 py-2 hover:bg-gray-100 text-sm">Messages</Link>
-                  <Link to="/account/tikangcash" className="block px-4 py-2 hover:bg-gray-100 text-sm">TikangCash</Link>
-                  <Link to="/account/reviews" className="block px-4 py-2 hover:bg-gray-100 text-sm">Reviews</Link>
-                  <button onClick={logout} className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-100 text-sm">Logout</button>
-                </div>
-              )}
-            </div>
+                <button
+                  onClick={logout}
+                  className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-100 text-sm"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
           ) : (
             <Link to="/login" className="hover:text-green-600 text-xl">
               <FaUserCircle />
@@ -325,7 +395,18 @@ export default function NavBar() {
               </div>
             )}
           <Link to="/" onClick={() => setMobileMenuOpen(false)}>Home</Link>
-          <Link to="/owner" onClick={() => setMobileMenuOpen(false)}>List your Property</Link>
+          {!user ? (
+            <Link to="/owner" className="hover:text-green-600">
+              List your Property
+            </Link>
+          ) : (
+            <button
+              onClick={() => setOwnerModalOpen(true)}
+              className="hover:text-green-600"
+            >
+              Homeowner Centre
+            </button>
+          )}
           <Link to="#" onClick={() => setMobileMenuOpen(false)}>Favorites</Link>
           <Link to="#" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2">
             <FaShoppingCart /> Cart
@@ -346,6 +427,44 @@ export default function NavBar() {
           )}
         </div>
       </div>
+            {/* Report a Problem Modal */}
+            {showReportModal && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex justify-center items-center px-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl animate-fadeIn">
+            <h3 className="text-lg font-bold text-gray-800 mb-2">Report a Problem</h3>
+            <textarea
+              rows={4}
+              className="w-full border rounded-md p-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-yellow-400 resize-none"
+              placeholder="Describe the issue you're facing..."
+              value={problemText}
+              onChange={(e) => setProblemText(e.target.value)}
+            ></textarea>
+
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => setShowReportModal(false)}
+                className="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitProblem}
+                disabled={submitting}
+                className="px-4 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-md text-sm"
+              >
+                {submitting ? "Submitting..." : "Submit"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <OwnerRedirectModal
+        isOpen={ownerModalOpen}
+        onClose={() => setOwnerModalOpen(false)}
+        otherRoles={user?.other_role}
+        userType={user?.user_type}
+        userId={user?.user_id}
+      />
     </nav>
   );
 }

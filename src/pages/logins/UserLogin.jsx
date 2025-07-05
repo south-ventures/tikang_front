@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import WarningPopup from '../../components/WarningPopup';
 import { useAuth } from '../../context/AuthContext';
@@ -6,9 +6,11 @@ import { motion } from 'framer-motion';
 import { countryList } from '../../assets/utils/countries';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import NavBar from '../../components/Navbar';
+import { useLocation } from 'react-router-dom';
 const API_BASE = process.env.REACT_APP_API_URL_GUEST;
 
 export default function UserLogin() {
+  const location = useLocation();
   const [success, setSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -37,6 +39,38 @@ export default function UserLogin() {
       [e.target.name]: e.target.value,
     }));
   };
+
+  useEffect(() => {
+    const autoLoginWithToken = async (token) => {
+      try {
+        setLoading(true);
+        setError('');
+        const res = await fetch(`${API_BASE}/validate-token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
+  
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.message || 'Token validation failed');
+  
+        setSuccess('Login successful!');
+        login(token);
+        await fetchUser();
+        setTimeout(() => navigate('/'), 1000); // redirect to guest dashboard
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token');
+    if (token) {
+      autoLoginWithToken(token);
+    }
+  }, [location.search, login, fetchUser, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -117,7 +151,8 @@ export default function UserLogin() {
           {isSignup ? (
             <>
               <div>
-                <img src="/assets/logo.png" alt="Tikang Logo" className="h-20 mb-4" />
+                <img src={`${process.env.REACT_APP_API_URL}/uploads/logo/logo.png`}
+                  alt="Tikang Logo" className="h-20 mb-4" />
                 <h2 className="text-3xl font-bold mb-2 leading-snug">
                   Discover Your Next Getaway<br />with Tikang
                 </h2>
@@ -148,7 +183,8 @@ export default function UserLogin() {
             </>
           ) : (
             <div className="flex flex-col justify-center items-center text-center h-full">
-              <img src="/assets/logo.png" alt="Tikang Logo" className="h-24 mb-4" />
+              <img src={`${process.env.REACT_APP_API_URL}/uploads/logo/logo.png`}
+          alt="Tikang Logo" className="h-24 mb-4" />
               <h2 className="text-2xl font-bold">Welcome to Tikang</h2>
               <p className="text-base text-white/90 mt-2 px-2">
                 Explore trusted properties and book your stay in just a few clicks.
