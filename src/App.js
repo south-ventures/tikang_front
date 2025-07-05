@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-
+import 'slick-carousel/slick/slick.css';
+import 'slick-carousel/slick/slick-theme.css';
 import Home from './pages/home/Home';
 import Owner from './pages/owner/Owner';
 import UserLogin from './pages/logins/UserLogin';

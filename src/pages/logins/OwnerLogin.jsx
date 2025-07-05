@@ -10,9 +10,9 @@ export default function OwnerLogin() {
       <header className="fixed top-0 w-full z-50 bg-white/80 shadow-md backdrop-blur-sm">
         <div className="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between">
           <img
-            src="/assets/logo.png"
+            src={`${process.env.REACT_APP_API_URL}/uploads/logo/logo.png`}
             alt="Tikang Logo"
-            className="h-10 w-auto bg-white p-1 rounded"
+            className="h-16 w-auto object-contain cursor-pointer"
           />
         <Link to="/lessor-login">
           <button className="text-sm text-blue-600 border border-blue-600 px-4 py-1.5 rounded-full hover:bg-blue-50">
@@ -26,9 +26,8 @@ export default function OwnerLogin() {
 
         {/* Left - Logo and Slogan */}
         <div className="hidden md:flex flex-col items-center justify-center bg-[#71a3d9] text-white p-10 w-1/2">
-        <img src={`${process.env.REACT_APP_API_URL}/uploads/logo/logo.png`}
-          alt="Tikang Logo"
-          className="h-16 w-auto object-contain cursor-pointer" />
+        <img           src={`${process.env.REACT_APP_API_URL}/uploads/logo/logo.png`}
+          alt="Tikang Logo" className="w-40 mb-2" />
         <h2 className="text-xl font-bold mb-1 text-center">Be a Owner and feature your place</h2>
         <p className="text-sm text-center">
             Your trusted rental platform for local and long stays in the Philippines.
