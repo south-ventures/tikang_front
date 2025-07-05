@@ -160,7 +160,7 @@ export default function NavBar() {
   return (
     <nav className="fixed top-0 left-0 w-full z-50 bg-[#D4EDDA] shadow-md px-4 py-3">
       <div className="flex items-center justify-between max-w-screen-xl mx-auto">
-      <Link to="/dashboard" className="flex items-center gap-2">
+      <Link to="/" className="flex items-center gap-2">
         <img
           src={`${process.env.REACT_APP_API_URL}/uploads/logo/logo.png`}
           alt="Tikang Logo"
