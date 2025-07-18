@@ -10,6 +10,7 @@ const BookForm = () => {
   const [adminGcashQr, setAdminGcashQr] = useState(null);
   const [showQrOverlay, setShowQrOverlay] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [additionalInfo, setAdditionalInfo] = useState('');
   
   const {
     property,
@@ -120,18 +121,22 @@ const BookForm = () => {
     formData.append('payment_status', 'pending');
     formData.append('booking_status', 'pending');
   
+    // Include room if present
     if (room?.room_id) formData.append('room_id', `{${room.room_id}}`);
     if (receiptImage) formData.append('gcash_receipt', receiptImage);
   
+    // Add additional info
+    if (additionalInfo) formData.append('additional_info', additionalInfo);
+  
     // Transaction values
-    const serviceCharge = subtotal * 0.15; // used for admin, not included in total_payment
-    const vatAmount = subtotal * 0.12;     // included in payment
-    const totalPayment = subtotal + vatAmount; // actual payment made by guest
+    const serviceCharge = subtotal * 0.15;
+    const vatAmount = subtotal * 0.12;
+    const totalPayment = subtotal + vatAmount;
   
     formData.append('subtotal', subtotal.toFixed(2));
     formData.append('vat', vatAmount.toFixed(2));
     formData.append('total_payment', totalPayment.toFixed(2));
-    formData.append('service_charge', serviceCharge.toFixed(2)); // just for reference
+    formData.append('service_charge', serviceCharge.toFixed(2));
     formData.append('payment_method', 'gcash');
   
     try {
@@ -152,6 +157,7 @@ const BookForm = () => {
       setLoading(false);
     }
   };
+  
 
   return (
     <div className="min-h-screen bg-gray-50 relative">
@@ -185,124 +191,111 @@ const BookForm = () => {
       {renderStepHeader()}
 
       {activeStep === 1 && (
-      <>
-        {/* Back Button Container */}
-        <div className="max-w-6xl mx-auto w-full mt-6 px-4">
-          <div className="mb-4">
-            <button
-              onClick={() => navigate(-1)}
-              className="flex items-center gap-2 text-blue-600 hover:text-blue-800 text-base font-semibold"
+      <div className="flex flex-col-reverse lg:flex-row-reverse max-w-6xl mx-auto w-full mt-6 px-4 gap-6">
+        {/* Right Summary (Shown first on mobile) */}
+        <div className="w-full lg:w-1/3 bg-white p-6 rounded-xl shadow text-sm text-gray-800 order-1 lg:order-none">
+        {/* Additional Information */}
+        <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Additional Information (optional)</label>
+            <textarea
+              rows={3}
+              placeholder="Any special requests or notes..."
+              className="w-full border p-3 rounded-md text-sm"
+              value={additionalInfo}
+              onChange={(e) => setAdditionalInfo(e.target.value)}
             >
-              <span className="text-xl">←</span> Back
-            </button>
+            </textarea>
+          </div>
+
+          <button
+            className="mt-6 mb-6 w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition"
+            onClick={() => {
+              setUnlockedStep(2);
+              setActiveStep(2);
+            }}
+          >
+            PROCEED TO PAYMENT
+          </button>
+          <img
+            src={
+              property?.thumbnail_url?.[0]
+                ? `${process.env.REACT_APP_API_URL}${property.thumbnail_url[0]}`
+                : "/assets/image_1.webp"
+            }
+            alt="Property"
+            className="rounded-xl mb-4 w-full h-48 object-cover"
+          />
+          <h3 className="text-xl font-bold text-blue-900 mb-1">{property?.title}</h3>
+          <p className="text-gray-600 mb-1">
+            📍 {property?.address}, {property?.city}, {property?.province}, {property?.country}
+          </p>
+          <p className="mb-1">🏠 Type: {property?.type}</p>
+          {property?.type?.toLowerCase() === 'house' && (
+            <>
+              <p className="mb-1">🛏️ Max Rooms: {property?.max_rooms}</p>
+              <p className="text-lg font-bold text-red-600">
+                {formatCurrency(property?.discount_price_per_night || property?.price_per_night)}
+              </p>
+            </>
+          )}
+          {room && (
+            <>
+              <hr className="my-4 border-gray-300" />
+              <img
+                src={
+                  room?.room_images?.[0]
+                    ? `${process.env.REACT_APP_API_URL}${room.room_images[0]}`
+                    : "/assets/image_1.webp"
+                }
+                alt="Room"
+                className="rounded-xl mb-4 w-full h-40 object-cover"
+              />
+              <h4 className="text-lg font-semibold text-gray-800">{room.room_name}</h4>
+              <p className="mb-1">🛏️ Type: {room.room_type}</p>
+              <p className="mb-1">👥 Max Guests: {room.max_guests}</p>
+              <p className="text-lg font-bold text-red-600">
+                {formatCurrency(room?.discount_price_per_night || room?.price_per_night)}
+              </p>
+            </>
+          )}
+          <hr className="my-4 border-gray-300" />
+          <h4 className="text-base font-semibold mb-2 text-gray-800">📅 Stay Details</h4>
+          <p>Check-in: <strong>{format(new Date(checkIn), 'MMM d, yyyy')}</strong></p>
+          <p>Check-out: <strong>{format(new Date(checkOut), 'MMM d, yyyy')}</strong></p>
+          <p>👤 Adults: {adults}</p>
+          <p>🧒 Children: {children}</p>
+          <div className="mt-6 bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-3 rounded-md text-center text-sm font-medium">
+            ✨ <span className="font-bold">Lowest Price Guaranteed!</span> Book now to lock in today’s best rate.
           </div>
         </div>
 
-        {/* Main Booking Step Content */}
-        <div className="flex flex-col lg:flex-row max-w-6xl mx-auto w-full px-4 gap-6">
-          <div className="flex-1 space-y-6">
-            <div className="bg-white p-6 rounded-xl shadow">
-              <h2 className="text-xl font-semibold mb-4 text-gray-800">Who's the lead guest?</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input type="text" value={user?.first_name || ''} readOnly className="border p-3 rounded w-full bg-gray-100" placeholder="First name *" />
-                <input type="text" value={user?.last_name || ''} readOnly className="border p-3 rounded w-full bg-gray-100" placeholder="Last name *" />
-              </div>
-              <input type="email" value={user?.email || ''} readOnly className="border p-3 rounded w-full mt-4 bg-gray-100" placeholder="Email *" />
-              <input type="text" value={user?.phone || ''} readOnly className="border p-3 rounded w-full mt-4 bg-gray-100" placeholder="Phone number (optional)" />
-
-              <button
-                className="mt-6 w-full bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition"
-                onClick={() => {
-                  setUnlockedStep(2);
-                  setActiveStep(2);
-                }}
-              >
-                NEXT: FINAL STEP
-              </button>
-              <p className="text-xs text-center text-green-600 mt-2">You won’t be charged yet.</p>
+        {/* Left Payment Summary */}
+        <div className="flex-1 space-y-6 order-2">
+          <div className="bg-white border border-blue-200 rounded-xl shadow p-6">
+            <h2 className="text-lg font-bold text-blue-800 mb-2">💳 Booking Payment Summary</h2>
+            <ul className="text-sm text-gray-700 mb-2 space-y-1">
+              <li>🏷️ Nightly Rate: <strong>{formatCurrency(pricePerNight)}</strong></li>
+              <li>🛏️ Nights: <strong>{nights}</strong></li>
+              <li>📄 Subtotal: <strong>{formatCurrency(subtotal)}</strong></li>
+              <li>🧾 VAT (12%): <strong>{formatCurrency(vat)}</strong></li>
+            </ul>
+            <div className="text-xl font-bold text-green-700 mt-2">
+              🔥 Total Amount: {formatCurrency(totalAmount)}
             </div>
 
-            <div className="bg-white border border-blue-200 rounded-xl shadow p-6">
-              <h2 className="text-lg font-bold text-blue-800 mb-2">💳 Booking Payment Summary</h2>
-              <ul className="text-sm text-gray-700 mb-2 space-y-1">
-                <li>🏷️ Nightly Rate: <strong>{formatCurrency(pricePerNight)}</strong></li>
-                <li>🛏️ Nights: <strong>{nights}</strong></li>
-                <li>📄 Subtotal: <strong>{formatCurrency(subtotal)}</strong></li>
-                <li>🧾 VAT (12%): <strong>{formatCurrency(vat)}</strong></li>
-              </ul>
-              <div className="text-xl font-bold text-green-700 mt-2">
-                🔥 Total Amount: {formatCurrency(totalAmount)}
+            {overCapacity && (
+              <div className="mt-4 text-sm bg-red-100 border border-red-300 text-red-800 p-3 rounded-md">
+                ⚠️ You have {totalGuests} guests, but the max allowed is {maxGuests}. Additional fees may apply upon onboarding.
               </div>
-
-              {overCapacity && (
-                <div className="mt-4 text-sm bg-red-100 border border-red-300 text-red-800 p-3 rounded-md">
-                  ⚠️ You have {totalGuests} guests, but the max allowed is {maxGuests}. Additional fees may apply upon onboarding.
-                </div>
-              )}
-
-              <div className="mt-4 text-sm bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-center">
-                📌 <strong>Cancellation Policy:</strong> If you need to cancel your booking, a <span className="font-bold text-blue-900">50% refund</span> will be issued.  
-                For rescheduling requests, please contact the property owner directly. Full refunds are not available.
-              </div>
-            </div>
-          </div>
-
-          {/* Right Summary */}
-          <div className="w-full lg:w-1/3 bg-white p-6 rounded-xl shadow text-sm text-gray-800">
-            <img
-              src={
-                property?.thumbnail_url?.[0]
-                  ? `${process.env.REACT_APP_API_URL}${property.thumbnail_url[0]}`
-                  : "/assets/image_1.webp"
-              }
-              alt="Property"
-              className="rounded-xl mb-4 w-full h-48 object-cover"
-            />
-            <h3 className="text-xl font-bold text-blue-900 mb-1">{property?.title}</h3>
-            <p className="text-gray-600 mb-1">
-              📍 {property?.address}, {property?.city}, {property?.province}, {property?.country}
-            </p>
-            <p className="mb-1">🏠 Type: {property?.type}</p>
-            {property?.type?.toLowerCase() === 'house' && (
-              <>
-                <p className="mb-1">🛏️ Max Rooms: {property?.max_rooms}</p>
-                <p className="text-lg font-bold text-red-600">
-                  {formatCurrency(property?.discount_price_per_night || property?.price_per_night)}
-                </p>
-              </>
             )}
-            {room && (
-              <>
-                <hr className="my-4 border-gray-300" />
-                <img
-                  src={
-                    room?.room_images?.[0]
-                      ? `${process.env.REACT_APP_API_URL}${room.room_images[0]}`
-                      : "/assets/image_1.webp"
-                  }
-                  alt="Room"
-                  className="rounded-xl mb-4 w-full h-40 object-cover"
-                />
-                <h4 className="text-lg font-semibold text-gray-800">{room.room_name}</h4>
-                <p className="mb-1">🛏️ Type: {room.room_type}</p>
-                <p className="mb-1">👥 Max Guests: {room.max_guests}</p>
-                <p className="text-lg font-bold text-red-600">
-                  {formatCurrency(room?.discount_price_per_night || room?.price_per_night)}
-                </p>
-              </>
-            )}
-            <hr className="my-4 border-gray-300" />
-            <h4 className="text-base font-semibold mb-2 text-gray-800">📅 Stay Details</h4>
-            <p>Check-in: <strong>{format(new Date(checkIn), 'MMM d, yyyy')}</strong></p>
-            <p>Check-out: <strong>{format(new Date(checkOut), 'MMM d, yyyy')}</strong></p>
-            <p>👤 Adults: {adults}</p>
-            <p>🧒 Children: {children}</p>
-            <div className="mt-6 bg-yellow-50 border border-yellow-300 text-yellow-800 px-4 py-3 rounded-md text-center text-sm font-medium">
-              ✨ <span className="font-bold">Lowest Price Guaranteed!</span> Book now to lock in today’s best rate.
+
+            <div className="mt-4 text-sm bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-center">
+              📌 <strong>Cancellation Policy:</strong> If you need to cancel your booking, a <span className="font-bold text-blue-900">50% refund</span> will be issued.  
+              For rescheduling requests, please contact the property owner directly. Full refunds are not available.
             </div>
           </div>
         </div>
-      </>
+      </div>
     )}
 
     {activeStep === 2 && (
@@ -368,6 +361,13 @@ const BookForm = () => {
               ⚠️ You have {totalGuests} guests, but the max allowed is {maxGuests}. Additional fees may apply upon arrival.
             </div>
           )}
+          
+          {additionalInfo && (
+              <div className="mt-4 text-sm bg-yellow-50 border border-yellow-300 text-yellow-800 p-3 rounded-md text-left">
+                📝 <strong>Additional Notes:</strong>
+                <p className="mt-1 whitespace-pre-line">{additionalInfo}</p>
+              </div>
+            )}
 
           <div className="mt-4 text-sm bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-md text-center">
             📌 <strong>Cancellation Policy:</strong> A <span className="font-bold text-blue-900">50% refund</span> will be issued if the booking is canceled. <br />

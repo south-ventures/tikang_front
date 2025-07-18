@@ -7,7 +7,6 @@ export default function Footer() {
       <div className="max-w-screen-xl mx-auto flex flex-col md:flex-row justify-between gap-10">
         {/* Left Side */}
         <div className="max-w-sm">
-          <img src="/assets/logo.png" alt="Tikang Logo" className="h-10 mb-2" />
           <h2 className="text-xl font-bold text-white">Tikang</h2>
           <p className="text-sm mt-2 text-gray-300">
             Find places that feel like home. Whether you're traveling or renting, Tikang makes it easy.

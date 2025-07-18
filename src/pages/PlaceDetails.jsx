@@ -61,6 +61,7 @@ const PlaceDetails = () => {
     endDate: checkOut ? new Date(checkOut) : addDays(new Date(), 1),
     key: 'selection'
   }]);
+  const [disabledDates, setDisabledDates] = useState([]);
   
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -76,30 +77,32 @@ const PlaceDetails = () => {
     const fetchDetailsWithUser = async () => {
       try {
         let currentUser = user;
-    
-        // If user is null or undefined, try to fetch
+  
         if (!currentUser) {
-          const fetched = await fetchUser(); // Ensure this returns a proper user or null
+          const fetched = await fetchUser();
           currentUser = fetched;
         }
-    
+  
         if (!property_id) return;
-    
+  
         const res = await fetch(
           `${process.env.REACT_APP_API_URL_PROPERTIES}/property-details/${property_id}?user_id=${currentUser?.user_id || ''}`
         );
         const result = await res.json();
         setData(result);
-        
         setCreator(result.property);
-    
-        if (currentUser?.userId && result.favorites) {
+  
+        // ✅ Set disabled dates after result is available
+        const disabled = result?.property?.disabled_dates || [];
+        setDisabledDates(disabled.map(dateStr => new Date(dateStr)));
+  
+        if (currentUser?.user_id && result.favorites) {
           const fav = result.favorites.find(fav => fav.property_id === property_id);
           setIsFavorite(!!fav);
         }
-    
+  
         setLoading(false);
-    
+  
         if (room_id) {
           setTimeout(() => {
             const roomEl = document.getElementById(`room-${room_id}`);
@@ -114,14 +117,33 @@ const PlaceDetails = () => {
         console.error('Failed to fetch property details:', err);
       }
     };
-    
   
     fetchDetailsWithUser();
-  }, [fetchUser, user, property_id, room_id]); // don't depend on user anymore
+  }, [fetchUser, user, property_id, room_id]);
   
 
   const handleBook = (room) => {
     navigate('/book', { state: { room } });
+  };
+
+  const isDisabledDate = (date) => {
+    return disabledDates.some(disabled =>
+      date.getFullYear() === disabled.getFullYear() &&
+      date.getMonth() === disabled.getMonth() &&
+      date.getDate() === disabled.getDate()
+    );
+  };
+  
+  const renderDayContent = (date) => {
+    const isDisabled = isDisabledDate(date);
+    return (
+      <div className={`relative`}>
+        <span>{date.getDate()}</span>
+        {isDisabled && (
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-red-500 rounded-full mt-1" />
+        )}
+      </div>
+    );
   };
 
   const toggleFavorite = async () => {
@@ -569,15 +591,17 @@ const PlaceDetails = () => {
               <div className="relative w-full">
                 <div className="w-full overflow-hidden rounded-xl">
                 <DateRange
-                  locale={enUS}
-                  editableDateInputs
-                  ranges={dateRange}
-                  onChange={(item) => setDateRange([item.selection])}
-                  moveRangeOnFirstSelection={false}
-                  minDate={new Date()}
-                  rangeColors={["#34d399"]}
-                  showDateDisplay={false}
-                />
+                    locale={enUS}
+                    editableDateInputs
+                    ranges={dateRange}
+                    onChange={(item) => setDateRange([item.selection])}
+                    moveRangeOnFirstSelection={false}
+                    minDate={new Date()}
+                    disabledDates={disabledDates}
+                    rangeColors={["#34d399"]}
+                    showDateDisplay={false}
+                    dayContentRenderer={renderDayContent}
+                  />
                 </div>
                 <button
                   onClick={() => setShowCalendar(false)}
@@ -670,8 +694,10 @@ const PlaceDetails = () => {
                     onChange={(item) => setDateRange([item.selection])}
                     moveRangeOnFirstSelection={false}
                     minDate={new Date()}
+                    disabledDates={disabledDates}
                     rangeColors={["#34d399"]}
                     showDateDisplay={false}
+                    dayContentRenderer={renderDayContent}
                   />
                 <button
                   onClick={() => setShowCalendar(false)}
@@ -997,16 +1023,18 @@ const PlaceDetails = () => {
     )}
     {showCalendar && (
       <div className="hidden custom-md:block xl-desktop:hidden fixed bottom-[90px] left-4 z-[999] bg-white rounded-xl shadow-lg">
-        <DateRange
-          locale={enUS}
-          editableDateInputs
-          ranges={dateRange}
-          onChange={(item) => setDateRange([item.selection])}
-          moveRangeOnFirstSelection={false}
-          minDate={new Date()}
-          rangeColors={["#34d399"]}
-          showDateDisplay={false}
-        />
+          <DateRange
+            locale={enUS}
+            editableDateInputs
+            ranges={dateRange}
+            onChange={(item) => setDateRange([item.selection])}
+            moveRangeOnFirstSelection={false}
+            minDate={new Date()}
+            disabledDates={disabledDates}
+            rangeColors={["#34d399"]}
+            showDateDisplay={false}
+            dayContentRenderer={renderDayContent}
+          />
         <div className="text-right px-3 pb-2">
           <button
             onClick={() => setShowCalendar(false)}
@@ -1017,9 +1045,6 @@ const PlaceDetails = () => {
         </div>
       </div>
     )}
-
-
-
       {/* Warning Popup */}
       <WarningPopup
         message={popupMessage}

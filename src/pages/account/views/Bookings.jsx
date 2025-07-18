@@ -203,6 +203,7 @@ export default function Bookings() {
             <p><FaTag className="inline mr-2" /><strong>Total Price:</strong> ₱{Number(booking.total_price).toFixed(2)}</p>
             <p><strong>Payment Status:</strong> <span className="capitalize">{booking.payment_status}</span></p>
             <p><strong>Status:</strong> <span className="capitalize">{booking.booking_status}</span></p>
+            <p><strong>Additional Info:</strong> <span className="capitalize">{booking.additional_info}</span></p>
           </div>
         </div>
 

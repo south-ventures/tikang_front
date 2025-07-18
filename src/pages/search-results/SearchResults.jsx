@@ -130,7 +130,11 @@ const SearchResults = () => {
           .map((prop) => {
             const type = prop.type?.toLowerCase();
             const isHouse = type === 'house';
-
+              // Skip property if checkIn matches disabled_dates
+            const disabledDates = (prop.disabled_dates || []).map(d => new Date(d).toDateString());
+            if (checkIn && disabledDates.includes(new Date(checkIn).toDateString())) {
+              return null;
+            }
             const propRooms = allRooms.filter((r) => r.property_id === prop.property_id && r.is_active);
 
             const availableRooms = propRooms
