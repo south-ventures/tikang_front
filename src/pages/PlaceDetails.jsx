@@ -74,19 +74,6 @@ const PlaceDetails = () => {
     );
   };
 
-  const isRoomFullyBookedOnDate = (room_id, date, total_rooms) => {
-    const activeBookings = roomBookings.filter(b =>
-      Array.isArray(b.room_id) &&
-      b.room_id.includes(room_id) &&
-      new Date(b.check_in_date) <= date &&
-      new Date(b.check_out_date) >= date &&
-      b.booking_status !== 'cancelled'
-    );
-  
-    // Total rooms booked on that day >= total_rooms
-    return activeBookings.length >= total_rooms;
-  };
-
   const isRoomFullyBookedOnRange = (room_id, total_rooms, checkIn, checkOut) => {
     const dates = getDatesInRange(new Date(checkIn), new Date(checkOut));
   
@@ -177,11 +164,6 @@ const PlaceDetails = () => {
   
     fetchDetailsWithUser();
   }, [fetchUser, user, property_id, room_id]);
-  
-
-  const handleBook = (room) => {
-    navigate('/book', { state: { room } });
-  };
 
   const isDisabledDate = (date) => {
     return disabledDates.some(disabled =>
@@ -280,7 +262,6 @@ const PlaceDetails = () => {
   } = data.property || {};
 
   const galleryImages = thumbnail_url.map(url => `${process.env.REACT_APP_API_URL}${url}`);
-  const selectedDate = dateRange[0].startDate;
   const rooms = data.rooms || [];
   const reviews = data.reviews || [];
   const review_count = data.review_count || 0;
