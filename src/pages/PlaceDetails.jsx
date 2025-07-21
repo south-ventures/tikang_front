@@ -50,7 +50,7 @@ const PlaceDetails = () => {
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [showFullRoomDesc, setShowFullRoomDesc] = useState({});
   const [showAllRoomAmenities] = useState(false);
-  
+  const [roomBookings, setRoomBookings] = useState([]);
   const [showCalendar, setShowCalendar] = useState(false);
   const [creator, setCreator] = useState(null);
   const [showMessageModal, setShowMessageModal] = useState(false);
@@ -62,7 +62,63 @@ const PlaceDetails = () => {
     key: 'selection'
   }]);
   const [disabledDates, setDisabledDates] = useState([]);
+
+  // 🔍 Check if a room is booked on the selected date
+  const isRoomBookedOnDate = (room_id, date) => {
+    return roomBookings.some(b =>
+      Array.isArray(b.room_id) &&
+      b.room_id.includes(room_id) &&
+      new Date(b.check_in_date) <= date &&
+      new Date(b.check_out_date) >= date &&
+      b.booking_status !== 'cancelled'
+    );
+  };
+
+  const isRoomFullyBookedOnDate = (room_id, date, total_rooms) => {
+    const activeBookings = roomBookings.filter(b =>
+      Array.isArray(b.room_id) &&
+      b.room_id.includes(room_id) &&
+      new Date(b.check_in_date) <= date &&
+      new Date(b.check_out_date) >= date &&
+      b.booking_status !== 'cancelled'
+    );
   
+    // Total rooms booked on that day >= total_rooms
+    return activeBookings.length >= total_rooms;
+  };
+
+  const isRoomFullyBookedOnRange = (room_id, total_rooms, checkIn, checkOut) => {
+    const dates = getDatesInRange(new Date(checkIn), new Date(checkOut));
+  
+    return dates.some(date => {
+      const bookingsOnDate = roomBookings.filter(b =>
+        Array.isArray(b.room_id) &&
+        b.room_id.includes(room_id) &&
+        new Date(b.check_in_date) <= date &&
+        new Date(b.check_out_date) >= date &&
+        b.booking_status !== 'cancelled'
+      );
+  
+      return bookingsOnDate.length >= total_rooms;
+    });
+  };
+
+  const isHouseFullyBooked = () => {
+    if (data.property?.type?.toLowerCase() !== 'house') return false;
+    const availableRooms = (data.rooms || []).filter(room =>
+      !isRoomBookedOnDate(room.room_id, dateRange[0].startDate)
+    );
+    return availableRooms.length === 0;
+  };
+  const getDatesInRange = (startDate, endDate) => {
+    const dates = [];
+    let current = new Date(startDate);
+    while (current <= endDate) {
+      dates.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+    return dates;
+  };
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (modalRef.current && !modalRef.current.contains(e.target)) {
@@ -91,6 +147,7 @@ const PlaceDetails = () => {
         const result = await res.json();
         setData(result);
         setCreator(result.property);
+        setRoomBookings(result.bookings || []);
   
         // ✅ Set disabled dates after result is available
         const disabled = result?.property?.disabled_dates || [];
@@ -223,6 +280,7 @@ const PlaceDetails = () => {
   } = data.property || {};
 
   const galleryImages = thumbnail_url.map(url => `${process.env.REACT_APP_API_URL}${url}`);
+  const selectedDate = dateRange[0].startDate;
   const rooms = data.rooms || [];
   const reviews = data.reviews || [];
   const review_count = data.review_count || 0;
@@ -386,23 +444,29 @@ const PlaceDetails = () => {
           <p className="text-sm text-gray-500">From</p>
           <p className="text-3xl font-bold text-red-600">₱ {price_per_night ? parseFloat(price_per_night).toFixed(2) : 'N/A'}</p>
           {type?.toLowerCase() === 'house' && (
-            <button
-              onClick={() =>
-                navigate('/book', {
-                  state: {
-                    checkIn: dateRange[0].startDate,
-                    checkOut: dateRange[0].endDate,
-                    adults: editAdults,
-                    children: editChildren,
-                    roomNum: editRooms,
-                    property: data.property
-                  }
-                })
-              }
-              className="mt-4 bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-5 rounded-xl hover:scale-105 transition"
-            >
-              Reserve Now
-            </button>
+            <>
+              {isHouseFullyBooked() ? (
+                <p className="mt-4 text-red-600 font-semibold text-sm bg-red-100 border border-red-300 px-4 py-2 rounded-xl inline-block">
+                  🚫 Fully Booked on Selected Dates
+                </p>
+              ) : (
+                <button
+                  onClick={() => navigate('/book', {
+                    state: {
+                      checkIn: dateRange[0].startDate,
+                      checkOut: dateRange[0].endDate,
+                      adults: editAdults,
+                      children: editChildren,
+                      roomNum: editRooms,
+                      property: data.property
+                    }
+                  })}
+                  className="mt-4 bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-5 rounded-xl hover:scale-105 transition"
+                >
+                  Reserve Now
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -513,23 +577,34 @@ const PlaceDetails = () => {
                     ) : (
                       <p className="text-2xl font-bold text-red-600">₱{room.price_per_night}</p>
                     )}
-                    <button
-                      onClick={() =>
-                        navigate('/book', {
-                          state: {
-                            checkIn: dateRange[0].startDate,
-                            checkOut: dateRange[0].endDate,
-                            adults: editAdults,
-                            children: editChildren,
-                            room: room,
-                            property: data.property
-                          }
-                        })
-                      }
-                      className="mt-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white text-base font-semibold py-3 px-6 rounded-2xl shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-300"
-                    >
-                      Book now
-                    </button>
+                    {isRoomFullyBookedOnRange(
+                      room.room_id,
+                      room.total_rooms || 1,
+                      dateRange[0].startDate,
+                      dateRange[0].endDate
+                    ) ? (
+                      <p className="mt-4 text-red-600 font-semibold text-sm bg-red-100 border border-red-300 px-4 py-2 rounded-xl inline-block">
+                        🚫 Fully Booked
+                      </p>
+                    ) : (
+                      <button
+                        onClick={() =>
+                          navigate('/book', {
+                            state: {
+                              checkIn: dateRange[0].startDate,
+                              checkOut: dateRange[0].endDate,
+                              adults: editAdults,
+                              children: editChildren,
+                              room: room,
+                              property: data.property
+                            }
+                          })
+                        }
+                        className="mt-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white text-base font-semibold py-3 px-6 rounded-2xl shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-300"
+                      >
+                        Book now
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -908,16 +983,6 @@ const PlaceDetails = () => {
               ) : (
                 <p className="text-sm text-gray-500">N/A</p>
               )}
-            </div>
-
-            {/* Floating Button Inside Modal */}
-            <div className="sticky bottom-0 bg-white pt-4 pb-4 text-right -mx-6 px-6 border-t">
-              <button
-                onClick={() => handleBook(selectedRoom)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full shadow-xl text-lg font-semibold transition hover:scale-105"
-              >
-                Book Now
-              </button>
             </div>
           </div>
         </div>
